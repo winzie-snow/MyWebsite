@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HEXDECODED • Án Mạng Phòng Thí Nghiệm</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    :root {
+      --ink: #b91c1c;
+      --ink-dim: rgba(185, 28, 28, 0.45);
+      --paper: #e8dfc8;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Segoe UI Web', system-ui, -apple-system, Arial, sans-serif;
+      background: #050505;
+      position: relative;
+      line-height: 1.6;
+    }
+
+    .font-case {
+      font-family: 'Segoe UI', 'Segoe UI Web', system-ui, -apple-system, Arial, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+    }
+
+    /* Ambient grain + vignette for a case-file / dim-room atmosphere */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background:
+        radial-gradient(ellipse at 50% -10%, rgba(185, 28, 28, 0.08), transparent 55%),
+        radial-gradient(ellipse at 50% 110%, rgba(0,0,0,0.6), transparent 60%);
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.045;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    .glass {
+      background: rgba(10, 10, 10, 0.78);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .case-card, .clue-card, .suspect-card {
+      transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    .case-card:hover, .clue-card:hover, .suspect-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(185, 28, 28, 0.45);
+    }
+    .suspect-card, .clue-card {
+      cursor: pointer;
+    }
+    .suspect-card:focus-visible, .clue-card:focus-visible {
+      outline: 1px solid var(--ink);
+      outline-offset: 4px;
+    }
+
+    .modal {
+      animation: modalIn 0.28s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(28px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .nav-link {
+      position: relative;
+    }
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 1px;
+      bottom: -3px;
+      left: 0;
+      background: #b91c1c;
+      transition: width 0.3s ease;
+    }
+    .nav-link:hover::after {
+      width: 100%;
+    }
+
+    /* SVG logo sizing */
+    .logo-mark {
+      height: 42px;
+      width: auto;
+    }
+    .logo-name {
+      height: 18px;
+      width: auto;
+    }
+
+    /* Rubber-stamp signature element: reserved for the case verdict moments */
+    .stamp {
+      display: inline-block;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-weight: 700;
+      letter-spacing: 3px;
+      border: 3px double currentColor;
+      padding: 6px 14px;
+      transform: rotate(-4deg);
+      text-shadow: 0 0 12px currentColor;
+    }
+
+    /* Scroll reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s cubic-bezier(0.23,1,0.32,1), transform 0.7s cubic-bezier(0.23,1,0.32,1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* Live pulsing indicator */
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--ink);
+      box-shadow: 0 0 0 0 rgba(185,28,28,0.6);
+      animation: livePulse 1.8s infinite;
+    }
+    @keyframes livePulse {
+      0%   { box-shadow: 0 0 0 0 rgba(185,28,28,0.55); }
+      70%  { box-shadow: 0 0 0 9px rgba(185,28,28,0); }
+      100% { box-shadow: 0 0 0 0 rgba(185,28,28,0); }
+    }
+
+    a, button {
+      -webkit-tap-highlight-color: transparent;
+    }
+    a:focus-visible, button:focus-visible {
+      outline: 1px solid var(--ink);
+      outline-offset: 3px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      .live-dot { animation: none; }
+      .case-card, .clue-card, .suspect-card { transition: border-color 0.2s ease; }
+    }
+  </style>
+</head>
+<body class="bg-[#050505] text-white overflow-x-hidden">
+
+  <!-- NAVBAR -->
+  <nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-white/10">
+    <div class="max-w-screen-2xl mx-auto px-6 md:px-8 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-x-4">
+        <!-- Logo Mark -->
+        <svg class="logo-mark" viewBox="0 0 106.98 140.22" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#fff" d="M101.98,101.02l.02-61.53-5.03-.27v-3.82s10.02.23,10.02.23v68.7s-53.37,35.88-53.37,35.88L0,104.19.03,36.05,53.59,0l34.45,23.07,5.29.78c.04,1.07-.03,2.2-.18,3.41l-9.2-.12L53.65,6.77,5.28,39.23l-.06,61.72,48.35,32.5,48.41-32.43Z"/>
+          <path fill="#fff" d="M46.94,91.89c-14.95-2.52-28.05-10.38-38.49-21.8,7.51-8.16,16.49-14.64,26.71-18.53,12.82-5.13,26.64-4.7,39.2.93,9.14,4.1,17.31,9.73,24.18,17.6-12.89,14.46-31.94,24.34-51.59,21.79ZM53.49,62.12c5.14-.06,8.76,3.88,8.52,9.08-.33,6.83-6.25,13.04-10.87,17.82,2.09.26,3.67-1.11,5-2.57,3.28-3.58,5.85-7.95,7.18-12.74,1.02-3.69.2-7.69-2.41-10.38-4.12-4.25-11.13-4.09-15.01.37-3.54,4.07-1.95,8.57-4.83,10.62-2.19,1.56-5.28,2.49-7.88,1.47-1.14-.45-1.12-2.53-.54-3.49,1.73-.16,4.11,1.81,6.15.5,1.11-.72,1.77-2.31,1.94-3.67.85-6.94,6.43-11.78,13.19-11.62,7.54.18,13,6.46,12.39,14.28-.51,6.58-4.93,11.61-8.65,17.1.99-.15,2.58-.64,3.25-1.6,3.05-4.41,7.11-11,7.25-16.44.26-9.64-8.09-16.57-17.15-14.98-6.65,1.17-11.44,6.38-11.93,13.35-.1,1.37-1.31,2.57-2.65,2.34-1.15-10.16,7.54-18.76,17.06-18.72,6.82.03,13.14,4.02,15.98,10.55,2.19,5.05,1.97,10.62-.69,15.36l-5.08,9.02c1.74-.04,1.57-1.54,2.42-2.34,7.8-7.29,8.71-20.01,1.49-28.13-6.82-7.66-18.42-8.28-26.19-1.79-4.22,3.53-6.39,8.59-6.91,14.07-.18.49-1.31,1.24-1.7,1.03-.41-.45-1-1.53-.92-2.17.62-5.33,3.24-10.15,6.83-14.57-9.49,2.6-18.65,9.28-25.64,16.21,7.7,7.9,16.61,13.57,26.86,16.74,6.75-2.74,12.32-7.81,15.07-14.87.3-.78-.45-2.24-1.14-2.48-3.08-1.12-.04,6.85-8.51,12.46-1.76,1.17-6.82,4.25-8.44,2.41-.23-.26-.24-1.05-.07-1.46l7.29-3.16c1.8-.78,3.08-2.48,3.93-4.22.91-1.86,1.19-3.85,1.57-5.91.4-2.2,2.71-3.26,4.75-2.92,1.77.3,3.71,2.26,3.32,4.43-1.34,7.43-7.08,13.12-13.41,16.63,1.59,1.12,3.2.6,4.41-.58l5.77-5.65c2.89-2.83,4.67-6.58,4.84-10.6.13-3.01-1.51-5.32-4.4-5.89-2.41-.48-5.11.25-6.31,2.66-1.9,3.8-.86,6.58-4.17,9.45-2.49,2.17-5.62,3.49-9,3.51-.87,0-1.6-1.12-1.77-2.06l6.41-1.79c1.93-.54,3.66-2.1,4.16-4.05,1.34-5.22,2.54-10.56,9.28-10.65ZM94.09,70.04c-7.55-7.12-16.02-13.58-25.79-16.13,9.17,9.11,9.21,23.42.03,32.4,9.73-2.49,18.9-9.23,25.75-16.26Z"/>
+          <rect fill="#fff" x="95.81" y="29.26" width="9.05" height="3.29"/>
+        </svg>
+
+        <!-- Name -->
+        <svg class="logo-name hidden sm:block" viewBox="0 0 107.2 6.6" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <style>.cls-1{fill:#fff}.cls-2{fill:red}</style>
+          </defs>
+          <g>
+            <rect class="cls-1" y="0" width="1.2" height="6.6"/>
+            <rect class="cls-1" x="5.19" y="0" width="1.2" height="6.6"/>
+            <rect class="cls-1" x="3.2" y=".7" width="1.2" height="5.19" transform="translate(.5 7.09) rotate(-90)"/>
+          </g>
+          <g>
+            <rect class="cls-1" x="13.29" y="2.7" width="3.76" height="1.2"/>
+            <polygon class="cls-1" points="17.05 1.2 17.05 0 15.41 0 12.46 0 11.86 0 11.26 0 11.26 6.6 11.86 6.6 12.46 6.6 17.05 6.6 17.05 5.4 12.46 5.4 12.46 1.2 17.05 1.2"/>
+          </g>
+          <g>
+            <rect class="cls-1" x="47.39" y="2.7" width="3.76" height="1.2"/>
+            <polygon class="cls-1" points="51.15 1.2 51.15 0 47.56 0 46.56 0 45.96 0 45.36 0 45.36 6.6 45.96 6.6 46.56 6.6 51.15 6.6 51.15 5.4 46.56 5.4 46.56 1.2 51.15 1.2"/>
+          </g>
+          <rect class="cls-1" x="92.13" y="2.7" width="3.76" height="1.2"/>
+          <polygon class="cls-1" points="29.43 0 27.73 0 25.34 2.39 22.95 0 21.25 0 24.49 3.24 21.14 6.6 22.84 6.6 25.34 4.09 27.85 6.6 29.54 6.6 26.19 3.24 29.43 0"/>
+          <path class="cls-1" d="M40.52,2.03c-.18-.4-.41-.75-.71-1.06-.3-.3-.65-.54-1.06-.71-.4-.17-.82-.26-1.28-.26h-3.68v6.6h1.49,0s2.19,0,2.19,0c.45,0,.88-.09,1.28-.26.4-.17.76-.41,1.06-.71.3-.31.53-.65.71-1.06.17-.4.26-.82.26-1.27s-.08-.87-.26-1.27ZM39.51,4.15c-.04.1-.09.19-.15.28-.02.03-.15.24-.32.42-.33.33-.75.49-.9.55h-3.14V1.2h3.14c.15.05.57.21.9.55.18.18.31.39.32.42.05.09.1.18.15.28.12.27.17.55.17.85s-.06.58-.17.85Z"/>
+          <path class="cls-1" d="M106.95,2.03c-.18-.4-.41-.75-.71-1.06-.3-.3-.65-.54-1.06-.71-.4-.17-.82-.26-1.28-.26h-3.68v6.6h1.49,0s2.19,0,2.19,0c.45,0,.88-.09,1.28-.26.4-.17.76-.41,1.06-.71.3-.31.53-.65.71-1.06.17-.4.26-.82.26-1.27s-.08-.87-.26-1.27ZM105.93,4.15c-.04.1-.09.19-.15.28-.02.03-.15.24-.32.42-.33.33-.75.49-.9.55h-3.14V1.2h3.14c.15.05.57.21.9.55.18.18.31.39.32.42.05.09.1.18.15.28.12.27.17.55.17.85s-.06.58-.17.85Z"/>
+          <path class="cls-1" d="M85.51,2.03c-.18-.4-.41-.75-.71-1.06-.3-.3-.65-.54-1.06-.71-.4-.17-.82-.26-1.28-.26h-3.68v6.6h1.49,0s2.19,0,2.19,0c.45,0,.88-.09,1.28-.26.4-.17.76-.41,1.06-.71.3-.31.53-.65.71-1.06.17-.4.26-.82.26-1.27s-.08-.87-.26-1.27ZM84.5,4.15c-.04.1-.09.19-.15.28-.02.03-.15.24-.32.42-.33.33-.75.49-.9.55h-3.14V1.2h3.14c.15.05.57.21.9.55.18.18.31.39.32.42.05.09.1.18.15.28.12.27.17.55.17.85s-.06.58-.17.85Z"/>
+          <path class="cls-1" d="M56.96,2.19c.14-.25.32-.46.56-.64.23-.17.49-.3.79-.37.18-.05.36-.06.53-.06h3.3V.02h-3.3c-.27,0-.54.02-.81.09-.44.11-.83.31-1.17.57-.35.27-.62.58-.84.95-.21.36-.36.76-.43,1.18-.02.16-.03.32-.03.48,0,.16,0,.32.03.48.07.43.21.82.43,1.18.22.37.5.68.84.95.34.27.73.46,1.17.57.27.07.54.09.81.09h3.3v-1.1h-3.3c-.18,0-.35,0-.53-.06-.3-.08-.56-.2-.79-.37-.23-.18-.42-.39-.56-.64-.14-.24-.24-.5-.28-.79-.02-.11-.02-.22-.02-.32,0-.11,0-.21.02-.32.05-.28.14-.55.28-.79Z"/>
+          <path class="cls-2" d="M74.26,2.81c-.07-.43-.21-.82-.43-1.18-.22-.37-.5-.68-.84-.95-.34-.27-.73-.46-1.17-.57-.27-.07-.54-.09-.81-.09h-1.21c-.27,0-.54.02-.81.09-.44.11-.83.31-1.17.57-.35.27-.62.58-.84.95-.21.36-.36.76-.43,1.18-.02.16-.03.32-.03.48,0,.16,0,.32.03.48.07.43.21.82.43,1.18.22.37.5.68.84.95.34.27.73.46,1.17.57.27.07.54.09.81.09h1.21c.27,0,.54-.02.81-.09.44-.11.83-.31,1.17-.57.35-.27.62-.58.84-.95.21-.36.36-.76.43-1.18.02-.16.03-.32.03-.48,0-.16,0-.32-.03-.48ZM73.17,3.62c-.05.28-.14.55-.28.79-.14.25-.32.46-.56.64-.23.17-.49.3-.79.37-.18.05-.36.06-.53.06h-1.21c-.18,0-.35,0-.53-.06-.3-.08-.56-.2-.79-.37-.23-.18-.42-.39-.56-.64-.14-.24-.24-.5-.28-.79-.02-.11-.02-.22-.02-.32,0-.11,0-.21.02-.32.05-.28.14-.55.28-.79.14-.25.32-.46.56-.64.23-.17.49-.3.79-.37.18-.05.36-.06.53-.06h1.21c.18,0,.35,0,.53.06.3.08.56.2.79.37.23.18.42.39.56.64.14.24.24.5.28.79.02.11.02.22.02.32,0,.11,0,.21-.02.32Z"/>
+          <polygon class="cls-1" points="95.89 1.2 95.89 0 95.24 0 91.3 0 90.7 0 90.1 0 90.1 6.6 90.7 6.6 91.3 6.6 95.89 6.6 95.89 5.4 91.3 5.4 91.3 1.2 95.89 1.2"/>
+        </svg>
+      </div>
+
+      <div class="hidden md:flex items-center gap-x-8 text-sm font-medium tracking-wide">
+        <a href="#case" class="nav-link text-white/80 hover:text-white">HỒ SƠ VỤ ÁN</a>
+        <a href="#suspects" class="nav-link text-white/80 hover:text-white">NGHI PHẠM</a>
+        <a href="#clues" class="nav-link text-white/80 hover:text-white">MANH MỐI</a>
+        <a href="#feed" class="nav-link text-white/80 hover:text-white">CẬP NHẬT TRỰC TIẾP</a>
+      </div>
+
+      <button onclick="document.getElementById('case').scrollIntoView({behavior:'smooth'})"
+              class="px-5 py-2.5 bg-[#b91c1c] hover:bg-[#991b1b] transition rounded-2xl text-sm font-semibold">
+        MỞ HỒ SƠ
+      </button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="min-h-[100dvh] flex items-center justify-center relative pt-20 z-[2]">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+      <div class="inline-flex items-center gap-x-2 px-4 py-1 rounded-full bg-white/5 border border-white/10 mb-8">
+        <span class="text-[10px] font-mono tracking-[2px] text-[#b91c1c]">HỒ SƠ VỤ ÁN • TRƯỜNG THPT ÁNH TRĂNG</span>
+      </div>
+
+      <h1 class="font-case text-6xl md:text-8xl tracking-tighter leading-tight mb-6">
+        ÁN MẠNG<br>
+        <span class="text-[#b91c1c]">PHÒNG THÍ NGHIỆM</span>
+      </h1>
+
+      <p class="text-xl text-white/70 max-w-lg mx-auto mb-10 leading-relaxed">
+        Một phòng thí nghiệm bị khóa kín. Một thi thể được phát hiện vào sáng thứ Hai.<br>
+        Ngôi trường gần như vắng người. Vậy mà vẫn có kẻ lọt vào được.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <button onclick="document.getElementById('case').scrollIntoView({behavior:'smooth'})"
+                class="px-8 py-4 bg-white text-black hover:bg-[#b91c1c] hover:text-white transition font-semibold rounded-3xl text-lg">
+          BẮT ĐẦU ĐIỀU TRA
+        </button>
+        <button onclick="document.getElementById('clues').scrollIntoView({behavior:'smooth'})"
+                class="px-8 py-4 border border-white/30 hover:bg-white/5 transition font-medium rounded-3xl text-lg">
+          XEM MANH MỐI
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- THE CASE -->
+  <section id="case" class="max-w-screen-2xl mx-auto px-6 md:px-8 py-20 border-t border-white/10 relative z-[2]">
+    <div class="max-w-3xl mx-auto text-center mb-16 reveal">
+      <div class="text-[#b91c1c] text-sm tracking-[3px] font-semibold mb-3">VỤ VIỆC</div>
+      <h2 class="font-case text-5xl md:text-6xl tracking-tight mb-6">Án Mạng Phòng Thí Nghiệm</h2>
+      <div class="flex flex-col items-center gap-y-3 mb-6">
+        <img src="images/duc.png" alt="Trần Minh Đức" class="w-20 h-20 rounded-2xl object-cover border border-[#b91c1c]/40" />
+        <div class="text-xs font-mono text-[#b91c1c] tracking-[2px]">NẠN NHÂN • Trần Minh Đức</div>
+      </div>
+      <p class="text-lg text-white/70 leading-relaxed">
+        Tối Chủ Nhật, sau 18 giờ, trường THPT Ánh Trăng gần như không còn ai. Chỉ còn vài nhân viên và bảo vệ trực.
+        Sáng thứ Hai, nhân viên vệ sinh phát hiện phòng thí nghiệm Hóa bị khóa từ bên ngoài.
+        Bên trong: thầy giáo Trần Minh Đức nằm bất động trên sàn.
+      </p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      <div class="case-card reveal bg-zinc-950 border border-white/10 rounded-3xl p-7">
+        <div class="text-[#b91c1c] text-xs font-mono mb-3">GIỜ TỬ VONG</div>
+        <div class="text-2xl font-semibold">≈ 18:45</div>
+        <p class="text-sm text-white/60 mt-2 leading-relaxed">Được xác định qua giám định pháp y. Chiếc đồng hồ vỡ chỉ là manh mối giả.</p>
+      </div>
+      <div class="case-card reveal bg-zinc-950 border border-white/10 rounded-3xl p-7">
+        <div class="text-[#b91c1c] text-xs font-mono mb-3">HÌNH THỨC GÂY ÁN</div>
+        <div class="text-2xl font-semibold">Vật cùn</div>
+        <p class="text-sm text-white/60 mt-2 leading-relaxed">Bị đánh vào sau gáy bằng giá đỡ thí nghiệm bằng kim loại.</p>
+      </div>
+      <div class="case-card reveal bg-zinc-950 border border-white/10 rounded-3xl p-7">
+        <div class="text-[#b91c1c] text-xs font-mono mb-3">CHI TIẾT MẤU CHỐT</div>
+        <div class="text-2xl font-semibold">Khóa từ bên ngoài</div>
+        <p class="text-sm text-white/60 mt-2 leading-relaxed">Không có dấu vết cạy phá. Hung thủ có chìa khóa và đã dàn dựng hiện trường.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SUSPECTS -->
+  <section id="suspects" class="max-w-screen-2xl mx-auto px-6 md:px-8 py-20 border-t border-white/10 relative z-[2]">
+    <div class="flex items-end justify-between mb-4 reveal">
+      <div>
+        <div class="text-[#b91c1c] text-sm tracking-[3px] font-semibold">ĐỐI TƯỢNG TÌNH NGHI</div>
+        <h2 class="font-case text-5xl tracking-tight">Nghi Phạm</h2>
+      </div>
+    </div>
+    <p class="text-white/40 text-sm mb-12 reveal leading-relaxed"><i class="fa-solid fa-hand-pointer mr-1.5"></i>Chạm vào một hồ sơ để xem chi tiết đầy đủ</p>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Suspect 1 -->
+      <div class="suspect-card reveal bg-zinc-950 border border-white/10 rounded-3xl p-7" tabindex="0" role="button" onclick="openSuspectModal(0)" onkeydown="if(event.key==='Enter')openSuspectModal(0)">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-x-4">
+            <img src="images/tuan.png" alt="Nguyễn Văn Tuấn" class="w-14 h-14 rounded-2xl object-cover border border-white/10 flex-shrink-0" />
+            <div>
+              <div class="text-xs font-mono text-white/50">NGHI PHẠM 01</div>
+              <div class="text-2xl font-semibold mt-1">Nguyễn Văn Tuấn</div>
+              <div class="text-sm text-white/60">Giáo viên Hóa học</div>
+            </div>
+          </div>
+          <div class="px-3 py-1 text-xs border border-green-600 text-green-500 rounded font-mono whitespace-nowrap">ĐÃ LOẠI TRỪ</div>
+        </div>
+        <p class="text-sm text-white/70 mb-4 leading-relaxed">Có chìa khóa. Thường xuyên tranh cãi với nạn nhân về việc quản lý phòng thí nghiệm. Rời trường lúc 18:12 (xác nhận qua camera cổng và cửa hàng tiện lợi).</p>
+      </div>
+
+      <!-- Suspect 2 -->
+      <div class="suspect-card reveal bg-zinc-950 border border-white/10 rounded-3xl p-7" tabindex="0" role="button" onclick="openSuspectModal(1)" onkeydown="if(event.key==='Enter')openSuspectModal(1)">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-x-4">
+            <img src="images/hung.png" alt="Lê Quốc Hùng" class="w-14 h-14 rounded-2xl object-cover border border-white/10 flex-shrink-0" />
+            <div>
+              <div class="text-xs font-mono text-white/50">NGHI PHẠM 02</div>
+              <div class="text-2xl font-semibold mt-1">Lê Quốc Hùng</div>
+              <div class="text-sm text-white/60">Học sinh – Lớp 12A1</div>
+            </div>
+          </div>
+          <div class="px-3 py-1 text-xs border border-green-600 text-green-500 rounded font-mono whitespace-nowrap">ĐÃ LOẠI TRỪ</div>
+        </div>
+        <p class="text-sm text-white/70 mb-4 leading-relaxed">Từng bị nạn nhân đình chỉ học. Có mâu thuẫn cá nhân. Vị trí điện thoại và camera nhà riêng xác nhận cậu ở nhà suốt buổi tối.</p>
+      </div>
+
+      <!-- Suspect 3 - GUILTY -->
+      <div class="suspect-card reveal bg-zinc-950 border border-[#b91c1c]/40 rounded-3xl p-7 relative overflow-hidden" tabindex="0" role="button" onclick="openSuspectModal(2)" onkeydown="if(event.key==='Enter')openSuspectModal(2)">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-[#b91c1c]/10 rounded-full blur-3xl"></div>
+        <div class="flex justify-between items-start mb-4 relative">
+          <div class="flex items-center gap-x-4">
+            <img src="images/long.png" alt="Phạm Thành Long" class="w-14 h-14 rounded-2xl object-cover border border-[#b91c1c]/40 flex-shrink-0" />
+            <div>
+              <div class="text-xs font-mono text-[#b91c1c]">NGHI PHẠM 03</div>
+              <div class="text-2xl font-semibold mt-1">Phạm Thành Long</div>
+              <div class="text-sm text-white/60 leading-snug">Quản lý Thiết bị Phòng Thí Nghiệm</div>
+            </div>
+          </div>
+          <div class="stamp text-[#b91c1c] text-xs whitespace-nowrap">CÓ TỘI</div>
+        </div>
+        <p class="text-sm text-white/70 mb-4 relative leading-relaxed">Kiểm soát kho thiết bị và hóa chất. Có quyền quản trị hệ thống camera. Sử dụng cổng kỹ thuật không bị giám sát. Động cơ: nhiều năm trộm cắp thiết bị sắp bị phanh phui.</p>
+      </div>
+
+      <!-- Suspect 4 -->
+      <div class="suspect-card reveal bg-zinc-950 border border-white/10 rounded-3xl p-7" tabindex="0" role="button" onclick="openSuspectModal(3)" onkeydown="if(event.key==='Enter')openSuspectModal(3)">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-x-4">
+            <img src="images/huy.png" alt="Nguyễn Đức Huy" class="w-14 h-14 rounded-2xl object-cover border border-white/10 flex-shrink-0" />
+            <div>
+              <div class="text-xs font-mono text-white/50">NGHI PHẠM 04</div>
+              <div class="text-2xl font-semibold mt-1">Nguyễn Đức Huy</div>
+              <div class="text-sm text-white/60 leading-snug">Trưởng phòng Cơ sở Vật chất</div>
+            </div>
+          </div>
+          <div class="px-3 py-1 text-xs border border-green-600 text-green-500 rounded font-mono whitespace-nowrap">ĐÃ LOẠI TRỪ</div>
+        </div>
+        <p class="text-sm text-white/70 mb-4 leading-relaxed">Phê duyệt xuất/nhập thiết bị. Có tài khoản quản trị camera dự phòng. Bằng chứng ngoại phạm vững chắc – tiệc sinh nhật gia đình có nhiều nhân chứng.</p>
+      </div>
+
+      <!-- Suspect 5 -->
+      <div class="suspect-card reveal bg-zinc-950 border border-white/10 rounded-3xl p-7" tabindex="0" role="button" onclick="openSuspectModal(4)" onkeydown="if(event.key==='Enter')openSuspectModal(4)">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-x-4">
+            <img src="images/mai.png" alt="Trần Thanh Mai" class="w-14 h-14 rounded-2xl object-cover border border-white/10 flex-shrink-0" />
+            <div>
+              <div class="text-xs font-mono text-white/50">NGHI PHẠM 05</div>
+              <div class="text-2xl font-semibold mt-1">Trần Thanh Mai</div>
+              <div class="text-sm text-white/60">Học sinh – Lớp 12D4</div>
+            </div>
+          </div>
+          <div class="px-3 py-1 text-xs border border-yellow-600 text-yellow-500 rounded font-mono whitespace-nowrap">ĐANG ĐIỀU TRA</div>
+        </div>
+        <p class="text-sm text-white/70 mb-4 leading-relaxed">Con gái của nạn nhân. Vừa có cuộc cãi vã công khai tại cổng trường. Khai rằng không có mặt ở trường tối hôm đó. Chưa có bằng chứng nào mâu thuẫn với lời khai.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLUES -->
+  <section id="clues" class="max-w-screen-2xl mx-auto px-6 md:px-8 py-20 border-t border-white/10 bg-zinc-950/40 relative z-[2]">
+    <div class="mb-4 reveal">
+      <div class="text-[#b91c1c] text-sm tracking-[3px] font-semibold">VẬT LÝ & KỸ THUẬT SỐ</div>
+      <h2 class="font-case text-5xl tracking-tight">Manh Mối Chính</h2>
+    </div>
+    <p class="text-white/40 text-sm mb-12 reveal leading-relaxed"><i class="fa-solid fa-magnifying-glass mr-1.5"></i>Chạm vào một manh mối để xem phân tích chi tiết</p>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="clue-card reveal bg-zinc-900 border border-white/10 rounded-3xl p-7" tabindex="0" role="button" onclick="openClueModal(0)" onkeydown="if(event.key==='Enter')openClueModal(0)">
+        <div class="text-xs font-mono text-[#b91c1c] mb-2">MANH MỐI 01 • CHIẾC ĐỒNG HỒ</div>
+        <h3 class="text-xl font-semibold mb-3">Dừng lại lúc 21:17</h3>
+        <p class="text-sm text-white/70 leading-relaxed">Đồng hồ của nạn nhân bị đập vỡ sau khi chết. Giờ tử vong theo pháp y là khoảng 18:45. Ai đó đã cố tình tạo ra một mốc thời gian giả.</p>
+      </div>
+
+      <div class="clue-card reveal bg-zinc-900 border border-white/10 rounded-3xl p-7" tabindex="0" role="button" onclick="openClueModal(1)" onkeydown="if(event.key==='Enter')openClueModal(1)">
+        <div class="text-xs font-mono text-[#b91c1c] mb-2">MANH MỐI 02 • CAMERA HÀNH LANG</div>
+        <h3 class="text-xl font-semibold mb-3">Đoạn ghi hình lúc 20:53</h3>
+        <p class="text-sm text-white/70 leading-relaxed">Một bóng người mặc áo khoác của nạn nhân đi qua hành lang. Nhưng đồng hồ lại đeo ở cổ tay phải. Mọi người đều xác nhận thầy giáo thật luôn đeo đồng hồ ở tay trái.</p>
+      </div>
+
+      <div class="clue-card reveal bg-zinc-900 border border-white/10 rounded-3xl p-7" tabindex="0" role="button" onclick="openClueModal(2)" onkeydown="if(event.key==='Enter')openClueModal(2)">
+        <div class="text-xs font-mono text-[#b91c1c] mb-2">MANH MỐI 03 • NHẬT KÝ HỆ THỐNG</div>
+        <h3 class="text-xl font-semibold mb-3">Chỉnh sửa camera lúc 19:26</h3>
+        <p class="text-sm text-white/70 leading-relaxed">Đoạn ghi hình đã bị chỉnh sửa bằng một tài khoản quản trị. Chỉ có ba người có quyền truy cập đó: Huy, Long và Tuấn.</p>
+      </div>
+
+      <div class="clue-card reveal bg-zinc-900 border border-white/10 rounded-3xl p-7" tabindex="0" role="button" onclick="openClueModal(3)" onkeydown="if(event.key==='Enter')openClueModal(3)">
+        <div class="text-xs font-mono text-[#b91c1c] mb-2">MANH MỐI 04 • THƯ MỤC MÃ HÓA</div>
+        <h3 class="text-xl font-semibold mb-3">Hồ sơ Trộm cắp Thiết bị</h3>
+        <p class="text-sm text-white/70 leading-relaxed">Được tìm thấy trên máy tính của nạn nhân. Danh sách các vật phẩm bị mất, hóa đơn bán hàng và ảnh chụp kho. Chữ ký đã bị giả mạo. Chỉ có Long là người kiểm soát kho hàng thực tế.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE FEED -->
+  <section id="feed" class="max-w-screen-2xl mx-auto px-6 md:px-8 py-20 border-t border-white/10 relative z-[2]">
+    <div class="flex items-center justify-between mb-8 reveal">
+      <div>
+        <div class="flex items-center gap-x-2 mb-1">
+          <span class="live-dot"></span>
+          <span class="text-[#b91c1c] text-sm tracking-[3px] font-semibold">CẬP NHẬT HIỆN TRƯỜNG</span>
+        </div>
+        <h2 class="font-case text-4xl md:text-5xl tracking-tight">Nhật Ký Điều Tra Trực Tiếp</h2>
+      </div>
+      <button onclick="refreshFeed()" id="refreshBtn"
+              class="flex items-center gap-x-2 px-5 py-2.5 border border-white/20 hover:bg-white/5 rounded-2xl text-sm transition">
+        <i class="fa-solid fa-sync-alt"></i>
+        <span>LÀM MỚI</span>
+      </button>
+    </div>
+
+    <div class="reveal bg-zinc-950 border border-white/10 rounded-3xl overflow-hidden" id="feedContainer">
+      <!-- JS populates -->
+    </div>
+  </section>
+
+  <!-- DETECTIVES -->
+  <section class="max-w-screen-2xl mx-auto px-6 md:px-8 py-20 border-t border-white/10 relative z-[2]">
+    <div class="max-w-4xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+      <div class="reveal">
+        <div class="text-[#b91c1c] text-sm tracking-[3px] font-semibold mb-3">ĐIỀU TRA VIÊN CHÍNH</div>
+        <h2 class="font-case text-5xl tracking-tight mb-6">Mây & Vũ</h2>
+        <div class="flex items-center gap-x-6 mb-6">
+          <div class="flex items-center gap-x-3">
+            <img src="images/may.png" alt="Mây" class="w-16 h-16 rounded-2xl object-cover border border-white/10" />
+            <span class="text-sm font-medium text-white/80">Mây</span>
+          </div>
+          <div class="flex items-center gap-x-3">
+            <img src="images/vu.png" alt="Vũ" class="w-16 h-16 rounded-2xl object-cover border border-white/10" />
+            <span class="text-sm font-medium text-white/80">Vũ</span>
+          </div>
+        </div>
+        <p class="text-white/70 leading-relaxed">
+          Được cử đến hỗ trợ công an tại trường THPT Ánh Trăng. Ngay từ những ngày đầu, Mây đã phát hiện ra nạn nhân đã âm thầm điều tra vụ trộm cắp thiết bị phòng thí nghiệm kéo dài nhiều năm. Phát hiện đó đã biến vụ án từ một tai nạn đơn giản thành một vụ giết người có tính toán.
+        </p>
+      </div>
+      <div class="reveal bg-zinc-950 border border-white/10 rounded-3xl p-8">
+        <div class="text-sm text-white/50 mb-4">TÌNH TRẠNG VỤ ÁN</div>
+        <div class="stamp text-[#b91c1c] text-2xl mb-3">ĐÃ ĐÓNG</div>
+        <p class="text-sm text-white/70 leading-relaxed">Phạm Thành Long đã nhận tội sau khi bằng chứng được đưa ra. Hắn bị bắt ngay trong khuôn viên trường.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE UNFINISHED CASE -->
+  <section class="max-w-screen-2xl mx-auto px-6 md:px-8 py-20 border-t border-white/10 relative z-[2]">
+    <div class="max-w-3xl mx-auto text-center reveal">
+      <div class="text-[#b91c1c] text-sm tracking-[3px] font-semibold mb-4">MỘT NĂM TRƯỚC</div>
+      <h2 class="font-case text-4xl md:text-5xl tracking-tight mb-6">Đây chưa bao giờ là khởi đầu</h2>
+      <p class="text-lg text-white/70 leading-relaxed mb-8">
+        Trong lúc dọn bàn làm việc của nạn nhân, người ta tìm thấy một phong bì được niêm phong:<br>
+        <span class="text-white font-medium">“HỒ SƠ MẤT TÍCH NĂM 2008”</span>
+      </p>
+      <p class="text-white/60 italic mb-8 leading-relaxed">
+        “Nếu bạn đang đọc những dòng này... nghĩa là tôi đã thất bại.<br>
+        Vụ án này... chưa bao giờ kết thúc.”
+      </p>
+      <div class="inline-block px-6 py-3 border border-[#b91c1c]/40 rounded-2xl text-sm text-[#b91c1c]">
+        Đèn phụt tắt. Một cánh cửa trong hành lang kho lưu trữ từ từ tự đóng lại.
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-white/10 py-10 px-6 text-center text-xs text-white/40 relative z-[2]">
+    <div class="mb-2">HEXDECODED • ÁN MẠNG PHÒNG THÍ NGHIỆM</div>
+    <div>Dựa trên cuộc điều tra tại trường THPT Ánh Trăng • Chỉ nhằm mục đích nghiên cứu</div>
+  </footer>
+
+  <!-- MODAL (generic) -->
+  <div id="modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6" onclick="if(event.target.id==='modal') closeModal()">
+    <div class="glass border border-white/10 max-w-2xl w-full rounded-3xl p-10 relative modal" onclick="event.stopPropagation()">
+      <button onclick="closeModal()" class="absolute top-8 right-8 text-white/40 hover:text-white text-3xl">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script>
+    // ---- Suspect & clue detail data (for modal drill-down) ----
+    const suspects = [
+      {
+        id: "NGHI PHẠM 01", name: "Nguyễn Văn Tuấn", role: "Giáo viên Hóa học", status: "ĐÃ LOẠI TRỪ", statusColor: "green", avatar: "images/tuan.png",
+        detail: "Có chìa khóa phòng thí nghiệm và từng nhiều lần tranh cãi với nạn nhân về cách quản lý thiết bị. Camera cổng trường ghi nhận ông rời trường lúc 18:12, và một cửa hàng tiện lợi gần đó xác nhận ông có mặt ở khu vực khác vào đúng khung giờ tử vong.",
+        alibi: "Camera cổng trường + hóa đơn cửa hàng tiện lợi lúc 18:15."
+      },
+      {
+        id: "NGHI PHẠM 02", name: "Lê Quốc Hùng", role: "Học sinh – Lớp 12A1", status: "ĐÃ LOẠI TRỪ", statusColor: "green", avatar: "images/hung.png",
+        detail: "Từng bị nạn nhân đề nghị đình chỉ học vì vi phạm nội quy, dẫn đến mâu thuẫn cá nhân kéo dài. Tuy nhiên, dữ liệu định vị điện thoại và camera an ninh tại nhà riêng cho thấy cậu không rời khỏi nhà trong suốt buổi tối xảy ra án mạng.",
+        alibi: "Định vị điện thoại + camera an ninh gia đình, không rời nhà."
+      },
+      {
+        id: "NGHI PHẠM 03", name: "Phạm Thành Long", role: "Quản lý Thiết bị Phòng Thí Nghiệm", status: "CÓ TỘI", statusColor: "red", avatar: "images/long.png",
+        detail: "Là người duy nhất kiểm soát toàn bộ kho thiết bị và hóa chất, đồng thời có quyền quản trị hệ thống camera an ninh. Đã sử dụng cổng kỹ thuật không bị giám sát để ra vào khu vực phòng thí nghiệm. Nạn nhân đã âm thầm thu thập bằng chứng về việc Long trộm cắp thiết bị suốt nhiều năm — và sắp trình báo. Long đã nhận tội sau khi bị đối chất với hồ sơ mã hóa tìm thấy trên máy tính nạn nhân.",
+        alibi: "Không có – đã thú nhận toàn bộ hành vi."
+      },
+      {
+        id: "NGHI PHẠM 04", name: "Nguyễn Đức Huy", role: "Trưởng phòng Cơ sở Vật chất", status: "ĐÃ LOẠI TRỪ", statusColor: "green", avatar: "images/huy.png",
+        detail: "Có quyền phê duyệt thiết bị ra/vào và sở hữu một tài khoản quản trị camera dự phòng, khiến ông từng bị nghi ngờ. Tuy nhiên, ông có mặt tại một buổi tiệc sinh nhật gia đình suốt tối hôm đó, được nhiều nhân chứng và ảnh chụp xác nhận thời gian rõ ràng.",
+        alibi: "Tiệc sinh nhật gia đình, nhiều nhân chứng xác nhận."
+      },
+      {
+        id: "NGHI PHẠM 05", name: "Trần Thanh Mai", role: "Học sinh – Lớp 12D4", status: "ĐANG ĐIỀU TRA", statusColor: "yellow", avatar: "images/mai.png",
+        detail: "Là con gái ruột của nạn nhân. Vài ngày trước vụ án, hai người đã có một cuộc cãi vã công khai ngay tại cổng trường. Mai khẳng định mình không có mặt ở trường vào tối hôm đó, nhưng hiện chưa có bằng chứng nào xác nhận hay bác bỏ lời khai này. Hồ sơ vẫn đang được rà soát.",
+        alibi: "Chưa xác minh – lời khai đơn phương, chưa có camera đối chiếu."
+      }
+    ];
+
+    const clues = [
+      {
+        id: "MANH MỐI 01 • CHIẾC ĐỒNG HỒ", title: "Dừng lại lúc 21:17",
+        detail: "Đồng hồ đeo tay của nạn nhân bị đập vỡ sau khi ông đã tử vong, dừng lại ở mốc 21:17. Nhưng kết quả giám định pháp y xác định giờ tử vong thực tế là khoảng 18:45 — lệch hơn hai tiếng. Đây là bằng chứng cho thấy hung thủ đã cố tình phá đồng hồ để dựng lên một mốc thời gian giả, đánh lạc hướng điều tra ban đầu."
+      },
+      {
+        id: "MANH MỐI 02 • CAMERA HÀNH LANG", title: "Đoạn ghi hình lúc 20:53",
+        detail: "Camera hành lang ghi lại hình ảnh một người mặc áo khoác giống hệt của nạn nhân đi ngang qua lúc 20:53 — dường như để chứng minh ông vẫn còn sống vào giờ đó. Nhưng chi tiết quan trọng bị bỏ sót: đồng hồ trên tay người trong đoạn phim lại đeo ở cổ tay phải. Nhiều đồng nghiệp xác nhận thầy Minh luôn đeo đồng hồ ở tay trái — chứng tỏ đây là người giả danh."
+      },
+      {
+        id: "MANH MỐI 03 • NHẬT KÝ HỆ THỐNG", title: "Chỉnh sửa camera lúc 19:26",
+        detail: "Nhật ký hệ thống an ninh cho thấy đoạn ghi hình quanh khu vực phòng thí nghiệm đã bị chỉnh sửa vào lúc 19:26, ngay sau thời điểm án mạng xảy ra. Chỉ có ba tài khoản quản trị có đủ quyền truy cập để thực hiện việc này: Huy, Long và Tuấn — thu hẹp đáng kể phạm vi tình nghi."
+      },
+      {
+        id: "MANH MỐI 04 • THƯ MỤC MÃ HÓA", title: "Hồ sơ Trộm cắp Thiết bị",
+        detail: "Một thư mục được mã hóa tìm thấy trên máy tính của nạn nhân chứa danh sách chi tiết các thiết bị bị thất thoát, hóa đơn bán hàng đáng ngờ và ảnh chụp kho lưu trữ. Nhiều chữ ký trong hồ sơ đã bị phát hiện là giả mạo. Vì chỉ Long là người thực sự kiểm soát kho hàng, đây chính là bằng chứng then chốt dẫn đến việc phanh phui động cơ gây án."
+      }
+    ];
+
+    function statusClasses(color) {
+      if (color === "green") return "border-green-600 text-green-500";
+      if (color === "yellow") return "border-yellow-600 text-yellow-500";
+      return "border-[#b91c1c] text-[#b91c1c]";
+    }
+
+    function openSuspectModal(i) {
+      const s = suspects[i];
+      document.getElementById('modalContent').innerHTML = `
+        <div class="flex items-center gap-x-5 mb-2">
+          <img src="${s.avatar}" alt="${s.name}" class="w-20 h-20 rounded-2xl object-cover border border-white/10 flex-shrink-0" />
+          <div>
+            <div class="text-xs font-mono text-white/50 mb-1">${s.id}</div>
+            <h3 class="text-3xl font-bold mb-1">${s.name}</h3>
+            <div class="text-sm text-white/60">${s.role}</div>
+          </div>
+        </div>
+        <div class="inline-block px-3 py-1 text-xs border ${statusClasses(s.statusColor)} rounded font-mono mb-6">${s.status}</div>
+        <p class="text-white/80 leading-relaxed mb-6">${s.detail}</p>
+        <div class="border-t border-white/10 pt-4">
+          <div class="text-xs font-mono text-white/50 mb-1">BẰNG CHỨNG NGOẠI PHẠM</div>
+          <div class="text-sm text-white/70">${s.alibi}</div>
+        </div>
+      `;
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal').classList.add('flex');
+    }
+
+    function openClueModal(i) {
+      const c = clues[i];
+      document.getElementById('modalContent').innerHTML = `
+        <div class="text-xs font-mono text-[#b91c1c] mb-2">${c.id}</div>
+        <h3 class="text-3xl font-bold mb-6">${c.title}</h3>
+        <p class="text-white/80 leading-relaxed">${c.detail}</p>
+      `;
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal').classList.add('flex');
+    }
+
+    // Feed data
+    let feedItems = [
+      { time: "09:14", msg: "Báo cáo pháp y xác nhận giờ tử vong ≈ 18:45", loc: "Khu Phòng Thí Nghiệm" },
+      { time: "10:02", msg: "Nhật ký quản trị cho thấy camera bị chỉnh sửa lúc 19:26", loc: "Phòng Bảo Vệ" },
+      { time: "11:37", msg: "Kiểm tra kho chìa khóa cổng kỹ thuật – thiếu một chiếc", loc: "Phòng Cơ Sở Vật Chất" },
+      { time: "13:20", msg: "Khôi phục được thư mục mã hóa từ máy tính nạn nhân", loc: "Văn Phòng" }
+    ];
+
+    function renderFeed() {
+      const box = document.getElementById('feedContainer');
+      box.innerHTML = '';
+      feedItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'flex items-start gap-x-6 px-8 py-5 border-b border-white/10 last:border-0 hover:bg-white/5 transition';
+        div.innerHTML = `
+          <div class="font-mono text-sm text-[#b91c1c] w-14 flex-shrink-0">${item.time}</div>
+          <div>
+            <div class="text-white/90">${item.msg}</div>
+            <div class="text-xs text-white/50 mt-1"><i class="fa-solid fa-location-dot mr-1"></i>${item.loc}</div>
+          </div>`;
+        box.appendChild(div);
+      });
+    }
+
+    function refreshFeed() {
+      const btn = document.getElementById('refreshBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-sync-alt fa-spin"></i> <span>ĐANG LÀM MỚI…</span>';
+      setTimeout(() => {
+        const msgs = [
+          "Lời khai mới từ bảo vệ ca đêm",
+          "Xác nhận giá đỡ thí nghiệm là hung khí",
+          "4 giáo viên xác nhận chi tiết đồng hồ đeo tay phải",
+          "Tìm thấy chìa khóa cổng kỹ thuật trong văn phòng của Long",
+          "Ghi chú cho thấy liên hệ với vụ án chưa giải quyết năm 2008"
+        ];
+        const locs = ["Khu Phòng Thí Nghiệm", "Kho Lưu Trữ", "Phòng Bảo Vệ", "Phòng Cơ Sở Vật Chất", "Văn Phòng"];
+        const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        feedItems.unshift({
+          time: now,
+          msg: msgs[Math.floor(Math.random()*msgs.length)],
+          loc: locs[Math.floor(Math.random()*locs.length)]
+        });
+        if (feedItems.length > 6) feedItems.pop();
+        renderFeed();
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-sync-alt"></i> <span>LÀM MỚI</span>';
+      }, 700);
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('modal').classList.remove('flex');
+    }
+
+    // Scroll reveal
+    function initReveal() {
+      const els = document.querySelectorAll('.reveal');
+      if (!('IntersectionObserver' in window)) {
+        els.forEach(el => el.classList.add('visible'));
+        return;
+      }
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+      els.forEach(el => io.observe(el));
+    }
+
+    // Init
+    renderFeed();
+    initReveal();
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+  </script>
+</body>
+</html>
