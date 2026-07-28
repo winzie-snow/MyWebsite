@@ -371,8 +371,14 @@
   </nav>
 
   <!-- HERO -->
-  <header class="min-h-[100dvh] flex items-center justify-center relative pt-20 z-[2]">
-    <div class="max-w-4xl mx-auto px-6 text-center">
+  <header class="min-h-[100dvh] flex items-center justify-center relative pt-20 z-[2] overflow-hidden">
+    <div class="absolute inset-0 z-0">
+      <img src="background.png" alt="" class="w-full h-full object-cover" />
+      <div class="absolute inset-0 backdrop-blur-sm"></div>
+      <div class="absolute inset-0 bg-black/65"></div>
+      <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-[#050505]"></div>
+    </div>
+    <div class="max-w-4xl mx-auto px-6 text-center relative z-10">
       <div class="inline-flex items-center gap-x-2 px-4 py-1 rounded-full bg-white/5 border border-white/10 mb-8">
         <span class="text-[10px] font-mono tracking-[2px] text-[#b91c1c]">HỒ SƠ VỤ ÁN • TRƯỜNG THPT ÁNH TRĂNG</span>
       </div>
