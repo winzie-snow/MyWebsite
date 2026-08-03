@@ -365,12 +365,20 @@
         <a href="#suspects" class="nav-link text-white/80 hover:text-white">NGHI PHẠM</a>
         <a href="#clues" class="nav-link text-white/80 hover:text-white">MANH MỐI</a>
         <a href="#feed" class="nav-link text-white/80 hover:text-white">CẬP NHẬT TRỰC TIẾP</a>
+        <button onclick="openQuiz()" class="nav-link text-white/80 hover:text-white">PHÁ ÁN</button>
       </div>
 
-      <button onclick="document.getElementById('case').scrollIntoView({behavior:'smooth'})"
-              class="px-5 py-2.5 bg-[#b91c1c] hover:bg-[#991b1b] transition rounded-2xl text-sm font-semibold">
-        MỞ HỒ SƠ
-      </button>
+      <div class="flex items-center gap-x-3">
+        <button onclick="openQuiz()" title="Phá án"
+                class="flex items-center gap-x-2 px-4 py-2.5 border border-[#b91c1c]/50 hover:border-[#b91c1c] hover:bg-[#b91c1c]/10 transition rounded-2xl text-sm font-semibold text-[#b91c1c]">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span class="hidden sm:inline">PHÁ ÁN</span>
+        </button>
+        <button onclick="document.getElementById('case').scrollIntoView({behavior:'smooth'})"
+                class="px-5 py-2.5 bg-[#b91c1c] hover:bg-[#991b1b] transition rounded-2xl text-sm font-semibold">
+          MỞ HỒ SƠ
+        </button>
+      </div>
     </div>
   </nav>
 
@@ -656,6 +664,14 @@
       <div id="modalContent"></div>
     </div>
   </div>
+
+  <!-- QUIZ MODAL ("PHÁ ÁN") -->
+  <div id="quizModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] items-center justify-center p-4 sm:p-6" onclick="if(event.target.id==='quizModal') closeQuiz()">
+    <div class="glass border border-white/10 max-w-2xl w-full rounded-3xl p-6 sm:p-10 relative modal max-h-[88vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <button onclick="closeQuiz()" class="absolute top-6 right-6 sm:top-8 sm:right-8 text-white/40 hover:text-white text-3xl leading-none z-10">×</button>
+      <div id="quizContent"></div>
+    </div>
+  </div>
   </div><!-- /#site-content -->
 
   <script>
@@ -846,6 +862,219 @@
       document.getElementById('modal').classList.remove('flex');
     }
 
+    // ---- Quiz: "PHÁ ÁN" ----
+    const quizQuestions = [
+      {
+        q: "Nạn nhân trong vụ án là ai?",
+        options: ["Thầy giám thị Trần Minh Đức", "Bảo vệ trường Khương", "Thầy Nguyễn Văn Tuấn", "Ông Nguyễn Đức Huy"],
+        answer: 0,
+        explain: "Nạn nhân là thầy giám thị Trần Minh Đức, người bí mật điều tra vụ thất thoát thiết bị phòng thí nghiệm."
+      },
+      {
+        q: "Thi thể nạn nhân được phát hiện ở đâu?",
+        options: ["Sân trước cổng trường", "Phòng thí nghiệm Hóa học", "Phòng lưu trữ hồ sơ", "Kho vật tư"],
+        answer: 1,
+        explain: "Cô lao công phát hiện thi thể khi mở cửa khu phòng thí nghiệm Hóa học vào sáng thứ Hai."
+      },
+      {
+        q: "Kết quả pháp y cho thấy nguyên nhân tử vong thực sự là gì?",
+        options: ["Ngộ độc hóa chất trong phòng thí nghiệm", "Tai nạn khi kiểm tra thiết bị", "Bị đánh mạnh vào gáy bằng vật cứng kim loại", "Điện giật do thiết bị hỏng"], 
+        answer: 2,
+        explain: "Pháp y xác định nạn nhân tử vong do bị đánh mạnh vào gáy bằng một vật cứng bằng kim loại, bác bỏ giả thuyết tai nạn."
+      },
+      {
+        q: "Theo pháp y, giờ tử vong thực tế là khoảng mấy giờ?",
+        options: ["21 giờ 17 phút", "20 giờ 53 phút", "19 giờ 26 phút", "18 giờ 45 phút"],
+        answer: 3,
+        explain: "Pháp y xác định nạn nhân chết vào khoảng 18 giờ 45 phút — lệch hơn hai tiếng so với mốc trên chiếc đồng hồ bị đập vỡ."
+      },
+      {
+        q: "Chi tiết nào trên chiếc đồng hồ của nạn nhân cho thấy hiện trường đã bị dàn dựng?",
+        options: [
+          "Đồng hồ vẫn chạy bình thường",
+          "Đồng hồ dừng ở 21:17 nhưng bị đập vỡ sau khi nạn nhân đã chết",
+          "Đồng hồ bị mất tích",
+          "Đồng hồ chạy nhanh hơn 2 tiếng"
+        ],
+        answer: 1,
+        explain: "Đồng hồ dừng ở 21 giờ 17 phút, nhưng thực chất bị đập vỡ sau khi nạn nhân đã chết — nhằm tạo mốc thời gian giả."
+      },
+      {
+        q: "Chi tiết nào trong đoạn camera hành lang lúc 20:53 vạch trần kẻ giả danh?",
+        options: [
+          "Người trong video đi khập khiễng",
+          "Người trong video đeo đồng hồ ở tay phải, trong khi nạn nhân luôn đeo tay trái",
+          "Người trong video mặc sai đồng phục",
+          "Người trong video không có mặt nạ bảo hộ"
+        ],
+        answer: 1,
+        explain: "Người trong đoạn video đeo đồng hồ ở tay phải, nhưng mọi giáo viên xác nhận nạn nhân luôn đeo đồng hồ ở tay trái — chứng tỏ đó không phải là nạn nhân."
+      },
+      {
+        q: "Ai là người có quyền quản trị hệ thống camera và bị nghi ngờ chỉnh sửa dữ liệu?",
+        options: [
+          "Chỉ một mình Phạm Thành Long",
+          "Chỉ một mình Nguyễn Đức Huy",
+          "Ba người: Huy, Long và Tuấn",
+          "Toàn bộ giáo viên trong trường"
+        ],
+        answer: 2,
+        explain: "Chỉ ba người sở hữu quyền quản trị hệ thống camera: Nguyễn Đức Huy, Phạm Thành Long và Nguyễn Văn Tuấn."
+      },
+      {
+        q: "Ai có bằng chứng ngoại phạm rõ ràng nhờ đang dự tiệc sinh nhật gia đình?",
+        options: ["Phạm Thành Long", "Nguyễn Đức Huy", "Trần Thanh Mai", "Lê Quốc Hùng"],
+        answer: 1,
+        explain: "Ông Nguyễn Đức Huy có mặt tại một buổi tiệc sinh nhật gia đình suốt tối hôm đó, được nhiều người xác nhận."
+      },
+      {
+        q: "Ai là hung thủ thực sự trong vụ án, và động cơ gây án là gì?",
+        options: [
+          "Nguyễn Văn Tuấn, vì mâu thuẫn quản lý phòng thí nghiệm",
+          "Trần Thanh Mai, vì mâu thuẫn cha con",
+          "Phạm Thành Long, để che giấu hành vi biển thủ thiết bị suốt nhiều năm",
+          "Nguyễn Đức Huy, vì bị nạn nhân đe dọa tố cáo"
+        ],
+        answer: 2,
+        explain: "Phạm Thành Long là hung thủ. Khi biết nạn nhân sắp giao hồ sơ biển thủ thiết bị cho công an, ông đã ra tay trong cơn hoảng loạn để bịt đầu mối."
+      },
+      {
+        q: "Vật gì được tìm thấy trong ngăn kéo của nạn nhân ở phần kết, hé lộ một bí ẩn khác chưa được giải quyết?",
+        options: [
+          "Một con dao dính máu",
+          "Một phong bì ghi 'HỒ SƠ MẤT TÍCH NĂM 2008' cùng ảnh một nữ sinh",
+          "Một cuốn nhật ký viết tay của Long",
+          "Một chiếc chìa khóa cổng kỹ thuật"
+        ],
+        answer: 1,
+        explain: "M tìm thấy một phong bì cũ ghi 'HỒ SƠ MẤT TÍCH NĂM 2008' cùng bức ảnh một nữ sinh không rõ danh tính — gợi mở vụ án chưa từng khép lại từ một năm trước."
+      }
+    ];
+
+    let quizState = { index: 0, score: 0, selected: null, answers: [] };
+
+    function openQuiz() {
+      quizState = { index: 0, score: 0, selected: null, answers: [] };
+      renderQuiz();
+      const modal = document.getElementById('quizModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeQuiz() {
+      const modal = document.getElementById('quizModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function renderQuiz() {
+      const total = quizQuestions.length;
+      const i = quizState.index;
+
+      if (i >= total) {
+        renderQuizResults();
+        return;
+      }
+
+      const item = quizQuestions[i];
+      const picked = quizState.selected;
+
+      const optionsHtml = item.options.map((opt, oi) => {
+        let cls = "border-white/15 hover:border-white/40 hover:bg-white/5";
+        let icon = "";
+        if (picked !== null) {
+          if (oi === item.answer) {
+            cls = "border-green-600 bg-green-600/10 text-green-400";
+            icon = '<i class="fa-solid fa-check text-green-500 ml-2"></i>';
+          } else if (oi === picked) {
+            cls = "border-[#b91c1c] bg-[#b91c1c]/10 text-[#f87171]";
+            icon = '<i class="fa-solid fa-xmark text-[#f87171] ml-2"></i>';
+          } else {
+            cls = "border-white/10 text-white/40";
+          }
+        }
+        return `
+          <button onclick="selectQuizAnswer(${oi})" ${picked !== null ? 'disabled' : ''}
+            class="w-full flex items-center justify-between text-left px-5 py-4 border ${cls} rounded-2xl transition mb-3">
+            <span>${opt}</span>
+            ${icon}
+          </button>`;
+      }).join('');
+
+      document.getElementById('quizContent').innerHTML = `
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-xs font-mono text-[#b91c1c] tracking-widest">PHÁ ÁN</div>
+          <div class="text-xs font-mono text-white/50">CÂU ${i + 1} / ${total}</div>
+        </div>
+        <div class="w-full h-1 bg-white/10 rounded-full mb-6 overflow-hidden">
+          <div class="h-full bg-[#b91c1c] transition-all" style="width:${((i) / total) * 100}%"></div>
+        </div>
+        <h3 class="text-2xl font-bold mb-6 leading-snug">${item.q}</h3>
+        <div>${optionsHtml}</div>
+        ${picked !== null ? `
+          <div class="mt-2 mb-6 px-5 py-4 rounded-2xl border border-white/10 bg-white/5 text-sm text-white/70 leading-relaxed">
+            <i class="fa-solid fa-magnifying-glass text-[#b91c1c] mr-2"></i>${item.explain}
+          </div>
+          <button onclick="nextQuizQuestion()" class="w-full px-6 py-4 bg-[#b91c1c] hover:bg-[#991b1b] transition rounded-2xl text-sm font-semibold">
+            ${i + 1 < total ? 'CÂU TIẾP THEO' : 'XEM KẾT QUẢ'}
+          </button>` : ''}
+      `;
+    }
+
+    function selectQuizAnswer(oi) {
+      if (quizState.selected !== null) return;
+      quizState.selected = oi;
+      const item = quizQuestions[quizState.index];
+      const correct = oi === item.answer;
+      if (correct) quizState.score++;
+      quizState.answers.push({ oi, correct });
+      renderQuiz();
+    }
+
+    function nextQuizQuestion() {
+      quizState.index++;
+      quizState.selected = null;
+      renderQuiz();
+    }
+
+    function renderQuizResults() {
+      const total = quizQuestions.length;
+      const score = quizState.score;
+      const pct = Math.round((score / total) * 100);
+
+      let rank, rankColor, rankDesc;
+      if (pct === 100) {
+        rank = "THÁM TỬ TÀI BA"; rankColor = "text-green-500";
+        rankDesc = "Bạn đã ghép nối toàn bộ manh mối chính xác tuyệt đối. Vụ án không có cửa thoát khỏi bạn.";
+      } else if (pct >= 70) {
+        rank = "ĐIỀU TRA VIÊN GIÀU KINH NGHIỆM"; rankColor = "text-[#b91c1c]";
+        rankDesc = "Bạn nắm khá chắc các manh mối then chốt, chỉ bỏ lỡ vài chi tiết nhỏ.";
+      } else if (pct >= 40) {
+        rank = "TRỢ LÝ ĐIỀU TRA"; rankColor = "text-yellow-500";
+        rankDesc = "Bạn theo kịp phần lớn diễn biến, nhưng nên đọc lại hồ sơ vụ án kỹ hơn.";
+      } else {
+        rank = "NGƯỜI NGOÀI CUỘC"; rankColor = "text-white/60";
+        rankDesc = "Vụ án còn quá nhiều bí ẩn với bạn. Hãy quay lại hồ sơ vụ án và thử lại!";
+      }
+
+      document.getElementById('quizContent').innerHTML = `
+        <div class="text-center">
+          <div class="text-xs font-mono text-[#b91c1c] tracking-widest mb-4">KẾT QUẢ PHÁ ÁN</div>
+          <div class="text-6xl font-bold mb-2">${score}<span class="text-2xl text-white/40">/${total}</span></div>
+          <div class="text-sm font-mono ${rankColor} tracking-widest mb-4">${rank}</div>
+          <p class="text-white/70 leading-relaxed max-w-md mx-auto mb-8">${rankDesc}</p>
+          <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            <button onclick="openQuiz()" class="px-6 py-4 bg-[#b91c1c] hover:bg-[#991b1b] transition rounded-2xl text-sm font-semibold">
+              <i class="fa-solid fa-rotate-right mr-2"></i>PHÁ ÁN LẠI
+            </button>
+            <button onclick="closeQuiz()" class="px-6 py-4 border border-white/20 hover:bg-white/5 transition rounded-2xl text-sm font-semibold">
+              ĐÓNG
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
     // Scroll reveal
     function initReveal() {
       const els = document.querySelectorAll('.reveal');
@@ -868,7 +1097,7 @@
     renderFeed();
     initReveal();
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Escape') { closeModal(); closeQuiz(); }
     });
   </script>
 </body>
